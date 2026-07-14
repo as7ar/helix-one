@@ -69,6 +69,89 @@ class HelixViewModel(application: Application) : AndroidViewModel(application) {
     private val _simulationProgress = MutableStateFlow(0f)
     val simulationProgress: StateFlow<Float> = _simulationProgress.asStateFlow()
 
+    // SharedPreferences for lightweight user profile storage
+    private val sharedPrefs = application.getSharedPreferences("helix_user_prefs", android.content.Context.MODE_PRIVATE)
+
+    private val _patientName = MutableStateFlow(sharedPrefs.getString("patient_name", "") ?: "")
+    val patientName: StateFlow<String> = _patientName.asStateFlow()
+
+    private val _patientCode = MutableStateFlow(sharedPrefs.getString("patient_code", "") ?: "")
+    val patientCode: StateFlow<String> = _patientCode.asStateFlow()
+
+    private val _patientBirth = MutableStateFlow(sharedPrefs.getString("patient_birth", "") ?: "")
+    val patientBirth: StateFlow<String> = _patientBirth.asStateFlow()
+
+    private val _patientGender = MutableStateFlow(sharedPrefs.getString("patient_gender", "") ?: "")
+    val patientGender: StateFlow<String> = _patientGender.asStateFlow()
+
+    private val _isFirstRun = MutableStateFlow(sharedPrefs.getBoolean("is_first_run", true))
+    val isFirstRun: StateFlow<Boolean> = _isFirstRun.asStateFlow()
+
+    fun savePatientProfile(name: String, code: String, birth: String, gender: String) {
+        val finalCode = code.ifEmpty { "HX-2026-${(1000..9999).random()}" }
+        val finalBirth = birth.ifEmpty { "1994.04.12" }
+        val finalGender = gender.ifEmpty { "남성" }
+        
+        sharedPrefs.edit()
+            .putString("patient_name", name)
+            .putString("patient_code", finalCode)
+            .putString("patient_birth", finalBirth)
+            .putString("patient_gender", finalGender)
+            .putBoolean("is_first_run", false)
+            .apply()
+        
+        _patientName.value = name
+        _patientCode.value = finalCode
+        _patientBirth.value = finalBirth
+        _patientGender.value = finalGender
+        _isFirstRun.value = false
+    }
+
+    // GPS Coordinates States (Defaults to Gangnam Station area: 37.4980, 127.0276)
+    private val _userLatitude = MutableStateFlow<Double?>(null)
+    val userLatitude: StateFlow<Double?> = _userLatitude.asStateFlow()
+
+    private val _userLongitude = MutableStateFlow<Double?>(null)
+    val userLongitude: StateFlow<Double?> = _userLongitude.asStateFlow()
+
+    private val _isGpsActive = MutableStateFlow(false)
+    val isGpsActive: StateFlow<Boolean> = _isGpsActive.asStateFlow()
+
+    // Helper to compute dynamic distance in km between two coordinates using Haversine
+    fun computeDistanceInKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6371.0 // earth radius in km
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        val dist = r * c
+        return Math.round(dist * 10.0) / 10.0 // Round to 1 decimal place
+    }
+
+    // Function to calculate ETA minutes based on distance
+    fun calculateEtaMinutes(distanceKm: Double): Int {
+        val eta = (distanceKm * 3.5 + 5).toInt()
+        return if (eta < 5) 5 else eta
+    }
+
+    // Recalculates hospital distances from user's coordinates and updates list
+    fun updateLocation(lat: Double, lng: Double, isRealGps: Boolean = false) {
+        _userLatitude.value = lat
+        _userLongitude.value = lng
+        _isGpsActive.value = isRealGps
+
+        val updated = _hospitals.value.map { hospital ->
+            val distance = computeDistanceInKm(lat, lng, hospital.latitude, hospital.longitude)
+            hospital.copy(
+                distanceKm = distance,
+                etaMinutes = calculateEtaMinutes(distance)
+            )
+        }
+        _hospitals.value = updated
+    }
+
     // Lifestyle Metrics (Static but modifiable in UX)
     private val _lifestyleMetrics = MutableStateFlow(
         listOf(
@@ -91,7 +174,9 @@ class HelixViewModel(application: Application) : AndroidViewModel(application) {
                 availableDates = listOf("내일 예약 가능", "07.16 목", "07.17 금"),
                 etaMinutes = 10,
                 address = "서울특별시 종로구 대학로 101",
-                phone = "02-2072-2114"
+                phone = "02-2072-2114",
+                latitude = 37.5796,
+                longitude = 127.0001
             ),
             Hospital(
                 id = "hosp_2",
@@ -101,7 +186,9 @@ class HelixViewModel(application: Application) : AndroidViewModel(application) {
                 availableDates = listOf("07.15 수", "07.16 목", "07.20 월"),
                 etaMinutes = 18,
                 address = "서울특별시 강남구 일원로 81",
-                phone = "02-3410-2000"
+                phone = "02-3410-2000",
+                latitude = 37.4881,
+                longitude = 127.0852
             ),
             Hospital(
                 id = "hosp_3",
@@ -111,7 +198,9 @@ class HelixViewModel(application: Application) : AndroidViewModel(application) {
                 availableDates = listOf("내일 예약 가능", "07.18 토", "07.21 화"),
                 etaMinutes = 22,
                 address = "서울특별시 서대문구 연세로 50-1",
-                phone = "02-2228-0114"
+                phone = "02-2228-0114",
+                latitude = 37.5625,
+                longitude = 126.9409
             ),
             Hospital(
                 id = "hosp_4",
@@ -121,7 +210,33 @@ class HelixViewModel(application: Application) : AndroidViewModel(application) {
                 availableDates = listOf("07.17 금", "07.18 토", "07.22 수"),
                 etaMinutes = 30,
                 address = "서울특별시 송파구 올림픽로43길 88",
-                phone = "02-3010-3114"
+                phone = "02-3010-3114",
+                latitude = 37.5264,
+                longitude = 127.1232
+            ),
+            Hospital(
+                id = "hosp_5",
+                name = "가톨릭대학교 서울성모병원",
+                distanceKm = 3.2,
+                pcrTestingCapable = true,
+                availableDates = listOf("07.16 목", "07.17 금", "07.21 화"),
+                etaMinutes = 15,
+                address = "서울특별시 서초구 반포대로 222",
+                phone = "1588-1511",
+                latitude = 37.5020,
+                longitude = 127.0047
+            ),
+            Hospital(
+                id = "hosp_6",
+                name = "분당서울대학교병원 정밀의학센터",
+                distanceKm = 18.4,
+                pcrTestingCapable = true,
+                availableDates = listOf("07.18 토", "07.22 수"),
+                etaMinutes = 45,
+                address = "경기도 성남시 분당구 구미로173번길 82",
+                phone = "1588-3366",
+                latitude = 37.3516,
+                longitude = 127.1230
             )
         )
     )
@@ -132,6 +247,9 @@ class HelixViewModel(application: Application) : AndroidViewModel(application) {
     val selectedHospitalForReserve: StateFlow<Hospital?> = _selectedHospitalForReserve.asStateFlow()
 
     init {
+        // Initialize distances based on Gangnam station area by default
+        updateLocation(37.4980, 127.0276, false)
+        
         // Prepare initial data if database is empty
         viewModelScope.launch {
             repository.allTestResults.first().let { results ->

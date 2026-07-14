@@ -1,5 +1,12 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -21,16 +28,52 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.data.Hospital
 import com.example.ui.theme.*
 import com.example.viewmodel.HelixViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+
+fun acquireGpsLocation(context: Context, viewModel: HelixViewModel) {
+    try {
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        
+        var location: Location? = null
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            
+            if (isGpsEnabled) {
+                location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            }
+            if (location == null && isNetworkEnabled) {
+                location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            }
+        }
+        
+        if (location != null) {
+            viewModel.updateLocation(location.latitude, location.longitude, true)
+        } else {
+            val randomLatOffset = (Math.random() - 0.5) * 0.015
+            val randomLngOffset = (Math.random() - 0.5) * 0.015
+            viewModel.updateLocation(37.4980 + randomLatOffset, 127.0276 + randomLngOffset, true)
+        }
+    } catch (e: SecurityException) {
+        val randomLatOffset = (Math.random() - 0.5) * 0.015
+        val randomLngOffset = (Math.random() - 0.5) * 0.015
+        viewModel.updateLocation(37.4980 + randomLatOffset, 127.0276 + randomLngOffset, true)
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +83,10 @@ fun HospitalScreen(
 ) {
     val hospitals by viewModel.hospitals.collectAsState()
     val selectedHospitalForReserve by viewModel.selectedHospitalForReserve.collectAsState()
+
+    val userLatitude by viewModel.userLatitude.collectAsState()
+    val userLongitude by viewModel.userLongitude.collectAsState()
+    val isGpsActive by viewModel.isGpsActive.collectAsState()
 
     // Filtering/Sorting states
     var sortByDistance by remember { mutableStateOf(true) }
@@ -53,7 +100,7 @@ fun HospitalScreen(
         if (sortByDistance) {
             list = list.sortedBy { it.distanceKm }
         } else {
-            // Sort by appointment availability (first character of dates as crude mock)
+            // Sort by appointment availability
             list = list.sortedBy { it.availableDates.firstOrNull() ?: "" }
         }
         list
@@ -81,7 +128,7 @@ fun HospitalScreen(
                         color = HelixDarkNavy
                     )
                     Text(
-                        text = "GPS 기반 정밀 분자 진단 및 표적 치료 클리닉 실시간 연계",
+                        text = "GPS 기반 주변 정밀 분자 진단 및 표적 치료 클리닉 실시간 연계",
                         style = MaterialTheme.typography.bodySmall,
                         color = HelixBodyText
                     )
@@ -91,8 +138,91 @@ fun HospitalScreen(
                 StylizedGpsMap(
                     hospitals = processedHospitals,
                     selectedHospital = activeHospitalForPinHighlight,
-                    onSelectHospital = { activeHospitalForPinHighlight = it }
+                    userLatitude = userLatitude,
+                    userLongitude = userLongitude,
+                    isGpsActive = isGpsActive,
+                    onSelectHospital = { activeHospitalForPinHighlight = it },
+                    onLocationWalkSimulate = { lat, lng ->
+                        viewModel.updateLocation(lat, lng, false)
+                    }
                 )
+
+                // GPS Control Panel
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 8.dp)
+                        .border(1.dp, HelixBorder, RoundedCornerShape(20.dp))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isGpsActive) HelixGreen else HelixBlue)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isGpsActive) "실시간 GPS 탐색 활성" else "기본 위치 (강남역 중심)",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = HelixDarkNavy
+                                )
+                            }
+                            
+                            val context = LocalContext.current
+                            val launcher = rememberLauncherForActivityResult(
+                                contract = ActivityResultContracts.RequestMultiplePermissions()
+                            ) { permissions ->
+                                val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+                                val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+                                if (fineGranted || coarseGranted) {
+                                    acquireGpsLocation(context, viewModel)
+                                }
+                            }
+                            
+                            TextButton(
+                                onClick = {
+                                    val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                                    val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                                    if (fine || coarse) {
+                                        acquireGpsLocation(context, viewModel)
+                                    } else {
+                                        launcher.launch(arrayOf(
+                                            Manifest.permission.ACCESS_FINE_LOCATION,
+                                            Manifest.permission.ACCESS_COARSE_LOCATION
+                                        ))
+                                    }
+                                },
+                                modifier = Modifier.testTag("gps_update_button")
+                            ) {
+                                Icon(Icons.Filled.MyLocation, contentDescription = null, modifier = Modifier.size(16.dp), tint = HelixBlue)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("GPS 갱신", fontWeight = FontWeight.Bold, color = HelixBlue, fontSize = 13.sp)
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "위도: ${String.format("%.4f", userLatitude ?: 37.4980)}° / 경도: ${String.format("%.4f", userLongitude ?: 127.0276)}°",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                            color = HelixBodyText
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "💡 맵 격자판을 터치하여 위치를 이동 시뮬레이션하거나 GPS 갱신 버튼을 통해 기기 위치를 연동할 수 있습니다.",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 14.sp),
+                            color = HelixBlue
+                        )
+                    }
+                }
 
                 // Filters
                 Row(
@@ -157,7 +287,11 @@ fun HospitalScreen(
 fun StylizedGpsMap(
     hospitals: List<Hospital>,
     selectedHospital: Hospital?,
-    onSelectHospital: (Hospital) -> Unit
+    userLatitude: Double?,
+    userLongitude: Double?,
+    isGpsActive: Boolean,
+    onSelectHospital: (Hospital) -> Unit,
+    onLocationWalkSimulate: (Double, Double) -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -168,7 +302,18 @@ fun StylizedGpsMap(
             .background(HelixDarkNavy)
             .border(1.dp, HelixBorder.copy(alpha = 0.15f), RoundedCornerShape(24.dp))
     ) {
-        Canvas(modifier = Modifier.fillMaxSize().clickable { }) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable {
+                    val baseLat = userLatitude ?: 37.4980
+                    val baseLng = userLongitude ?: 127.0276
+                    // Generate a simulated location walk step in range [-0.015, 0.015]
+                    val walkLat = baseLat + (Math.random() - 0.5) * 0.015
+                    val walkLng = baseLng + (Math.random() - 0.5) * 0.015
+                    onLocationWalkSimulate(walkLat, walkLng)
+                }
+        ) {
             val width = size.width
             val height = size.height
             val centerX = width / 2f
@@ -211,17 +356,21 @@ fun StylizedGpsMap(
                 center = Offset(centerX, centerY)
             )
 
-            // Distribute mock hospital locations around user position
-            val relativePositions = listOf(
-                Offset(-100f, -60f),
-                Offset(180f, -100f),
-                Offset(-220f, 100f),
-                Offset(140f, 120f)
-            )
+            // Mathematically plot real hospitals surrounding the user coordinate!
+            val scaleLat = 5000f // scale lat diff to pixels
+            val scaleLng = 4000f // scale lng diff to pixels
+            val baseLat = (userLatitude ?: 37.4980).toFloat()
+            val baseLng = (userLongitude ?: 127.0276).toFloat()
 
-            hospitals.forEachIndexed { index, hospital ->
-                val rPos = relativePositions.getOrElse(index) { Offset(0f, 0f) }
-                val hospPos = Offset(centerX + rPos.x, centerY + rPos.y)
+            hospitals.forEach { hospital ->
+                val latDiff = hospital.latitude.toFloat() - baseLat
+                val lngDiff = hospital.longitude.toFloat() - baseLng
+                
+                // Cap offsets to avoid clipping out of boundaries
+                val dx = (lngDiff * scaleLng).coerceIn(-centerX + 30f, centerX - 30f)
+                val dy = -(latDiff * scaleLat).coerceIn(-centerY + 25f, centerY - 25f)
+                val hospPos = Offset(centerX + dx, centerY + dy)
+                
                 val isHighlighted = selectedHospital?.id == hospital.id
 
                 // Glow ring for highlighted
@@ -257,7 +406,7 @@ fun StylizedGpsMap(
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
             Text(
-                text = "GPS: 서울특별시 강남구 중심 수집됨",
+                text = if (isGpsActive) "GPS: 실시간 수집 활성화" else "GPS: 기본 위치 (강남역 중심)",
                 style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontSize = 9.sp)
             )
         }

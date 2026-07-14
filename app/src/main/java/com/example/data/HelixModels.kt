@@ -65,7 +65,9 @@ data class Hospital(
     val availableDates: List<String>,
     val etaMinutes: Int,
     val address: String,
-    val phone: String
+    val phone: String,
+    val latitude: Double = 37.5,
+    val longitude: Double = 127.0
 )
 
 data class LifestyleMetric(

@@ -47,6 +47,7 @@ fun MainDashboardScreen(
     val bleState by viewModel.bleState.collectAsState()
     val bleProgress by viewModel.bleProgress.collectAsState()
     val bleStatusText by viewModel.bleStatusText.collectAsState()
+    val patientName by viewModel.patientName.collectAsState()
     val latestResult = results.firstOrNull()
 
     LazyColumn(
@@ -136,8 +137,9 @@ fun MainDashboardScreen(
                             .clickable { viewModel.selectTab(com.example.viewmodel.AppTab.MY_PAGE) },
                         contentAlignment = Alignment.Center
                     ) {
+                        val initial = if (patientName.isNotEmpty()) patientName.first().toString() else "H"
                         Text(
-                            text = "H1",
+                            text = initial,
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp

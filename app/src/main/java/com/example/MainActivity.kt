@@ -36,12 +36,19 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
+                val isFirstRun by viewModel.isFirstRun.collectAsState()
                 val currentTab by viewModel.currentTab.collectAsState()
                 val selectedResult by viewModel.selectedResult.collectAsState()
 
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    bottomBar = {
+                if (isFirstRun) {
+                    OnboardingSetupScreen(
+                        viewModel = viewModel,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Scaffold(
+                        modifier = Modifier.fillMaxSize(),
+                        bottomBar = {
                         // Display bottom bar only if we are NOT on the sub-detailed result screen
                         if (selectedResult == null) {
                             NavigationBar(
@@ -208,6 +215,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                }
                 }
             }
         }

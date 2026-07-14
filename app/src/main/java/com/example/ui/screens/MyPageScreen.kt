@@ -39,8 +39,112 @@ fun MyPageScreen(
     val notifications by viewModel.notifications.collectAsState()
     val testSchedule by viewModel.testSchedule.collectAsState()
 
+    val patientName by viewModel.patientName.collectAsState()
+    val patientCode by viewModel.patientCode.collectAsState()
+    val patientBirth by viewModel.patientBirth.collectAsState()
+    val patientGender by viewModel.patientGender.collectAsState()
+
+    var showEditProfileDialog by remember { mutableStateOf(false) }
+
     // Expandable section states
     var activeSubSection by remember { mutableStateOf(MyPageSection.NONE) }
+
+    if (showEditProfileDialog) {
+        var editName by remember { mutableStateOf(patientName) }
+        var editCode by remember { mutableStateOf(patientCode) }
+        var editBirth by remember { mutableStateOf(patientBirth) }
+        var editGender by remember { mutableStateOf(patientGender) }
+
+        AlertDialog(
+            onDismissRequest = { showEditProfileDialog = false },
+            title = { Text("환자 프로필 수정", fontWeight = FontWeight.Bold, color = HelixDarkNavy) },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = editName,
+                        onValueChange = { editName = it },
+                        label = { Text("환자 성명") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = HelixBlue)
+                    )
+                    OutlinedTextField(
+                        value = editCode,
+                        onValueChange = { editCode = it },
+                        label = { Text("환자 식별 코드") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = HelixBlue)
+                    )
+                    OutlinedTextField(
+                        value = editBirth,
+                        onValueChange = { editBirth = it },
+                        label = { Text("생년월일 (YYYY.MM.DD)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = HelixBlue)
+                    )
+                    Column {
+                        Text(
+                            text = "성별",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = HelixDarkNavy,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf("남성", "여성", "기타").forEach { gender ->
+                                val isSelected = editGender == gender
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSelected) HelixBlue else HelixLightGray)
+                                        .clickable { editGender = gender }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = gender,
+                                        color = if (isSelected) Color.White else HelixDarkNavy,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (editName.isNotBlank()) {
+                            viewModel.savePatientProfile(
+                                name = editName.trim(),
+                                code = editCode.trim(),
+                                birth = editBirth.trim(),
+                                gender = editGender
+                            )
+                            showEditProfileDialog = false
+                        }
+                    }
+                ) {
+                    Text("저장", fontWeight = FontWeight.Bold, color = HelixBlue)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditProfileDialog = false }) {
+                    Text("취소", color = HelixBodyText)
+                }
+            }
+        )
+    }
 
     LazyColumn(
         modifier = modifier
@@ -58,6 +162,7 @@ fun MyPageScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .border(1.dp, HelixBorder, RoundedCornerShape(24.dp))
+                    .clickable { showEditProfileDialog = true }
             ) {
                 Row(
                     modifier = Modifier.padding(24.dp),
@@ -70,18 +175,19 @@ fun MyPageScreen(
                             .background(HelixBlue),
                         contentAlignment = Alignment.Center
                     ) {
+                        val initial = if (patientName.isNotEmpty()) patientName.first().toString() else "H"
                         Text(
-                            text = "김희민",
+                            text = initial,
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
                         )
                     }
                     Spacer(modifier = Modifier.width(16.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "김희민 환자",
+                                text = if (patientName.isNotEmpty()) "$patientName 환자" else "미등록 환자",
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                                 color = HelixDarkNavy
                             )
@@ -93,7 +199,7 @@ fun MyPageScreen(
                                     .padding(horizontal = 8.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = "HELIX VIP",
+                                    text = patientGender,
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = HelixBlue,
                                         fontWeight = FontWeight.Bold
@@ -102,11 +208,24 @@ fun MyPageScreen(
                             }
                         }
                         Text(
-                            text = "환자 식별 코드: HX-2026-9081",
+                            text = "식별 코드: $patientCode",
                             style = MaterialTheme.typography.bodySmall,
                             color = HelixBodyText
                         )
+                        if (patientBirth.isNotEmpty()) {
+                            Text(
+                                text = "생년월일: $patientBirth",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = HelixBodyText
+                            )
+                        }
                     }
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "프로필 수정",
+                        tint = HelixBlue.copy(alpha = 0.8f),
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
