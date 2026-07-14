@@ -1,0 +1,6 @@
+{
+  "name": "HELIX ONE",
+  "description": "Next-generation precision medicine platform with AI health analysis and genetic testing data.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
