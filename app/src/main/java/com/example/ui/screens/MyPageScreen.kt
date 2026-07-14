@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material3.*
@@ -300,7 +301,7 @@ fun MyPageScreen(
                 // SECTION 4: Diagnostic test results log
                 MyPageAccordionHeader(
                     title = "검사 분석 이력 (${results.size})",
-                    icon = Icons.Filled.Assignment,
+                    icon = Icons.AutoMirrored.Filled.Assignment,
                     isSelected = activeSubSection == MyPageSection.HISTORY,
                     onClick = {
                         activeSubSection = if (activeSubSection == MyPageSection.HISTORY) MyPageSection.NONE else MyPageSection.HISTORY
@@ -526,7 +527,7 @@ fun ScheduleSettingsContent(
 
             schedule?.let { sched ->
                 Spacer(modifier = Modifier.height(16.dp))
-                Divider(color = HelixBorder)
+                HorizontalDivider(color = HelixBorder)
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),

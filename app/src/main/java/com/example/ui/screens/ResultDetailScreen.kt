@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -77,7 +78,7 @@ fun ResultDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.Filled.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "뒤로가기",
                             tint = HelixDarkNavy
                         )
@@ -146,7 +147,7 @@ fun ResultDetailScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Divider(color = HelixBorder, thickness = 1.dp)
+                        HorizontalDivider(color = HelixBorder, thickness = 1.dp)
 
                         Spacer(modifier = Modifier.height(12.dp))
 

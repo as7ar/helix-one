@@ -148,7 +148,7 @@ fun TreatmentScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Divider(color = HelixBorder, thickness = 1.dp)
+                    HorizontalDivider(color = HelixBorder, thickness = 1.dp)
 
                     Spacer(modifier = Modifier.height(12.dp))
 

@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -513,7 +514,7 @@ fun HospitalCard(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            Divider(color = HelixBorder, thickness = 1.dp)
+            HorizontalDivider(color = HelixBorder, thickness = 1.dp)
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -596,7 +597,7 @@ fun ReservationCalendarView(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "이전", tint = HelixDarkNavy)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "이전", tint = HelixDarkNavy)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
